@@ -1,5 +1,5 @@
 # USAGE
-# python scan.py --image images/page.jpg
+# python camera_scan.py --image images/page.jpg
 
 # import the necessary packages
 from pyimagesearch.transform import four_point_transform
@@ -11,40 +11,42 @@ import imutils
 
 
 def run():
-    image_height: int = 1000
+    np.set_printoptions(precision=1)
 
-    # construct the argument parser and parse the arguments
-    ap = argparse.ArgumentParser()
-    ap.add_argument("-i", "--image", required=True,
-                    help="Path to the image to be scanned")
-    args = vars(ap.parse_args())
+    video_capture = cv2.VideoCapture(0)
 
-    # load the image and compute the ratio of the old height
-    # to the new height, clone it, and resize it
-    image = cv2.imread(args["image"])
+    while True:
+        # Capture frame-by-frame
+        ret, frame = video_capture.read()
+
+        # Our operations on the frame come here
+        image_height = frame.shape[0]
+        edged, overlay, warped = process_frame(frame, image_height)
+
+        # Display the resulting frame
+        frame = cv2.flip(frame, 1)
+        cv2.imshow("Frame", frame)
+        cv2.imshow("edged", edged)
+        cv2.imshow("overlay", overlay)
+        cv2.imshow("warped", imutils.resize(warped, height=512))
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    # When everything done, release the capture
+    video_capture.release()
+    cv2.destroyAllWindows()
+
+
+def process_frame(image, image_height=1000):
     ratio = image.shape[0] / image_height
     orig = image.copy()
     image = imutils.resize(image, height=image_height)
 
-    # convert the image to grayscale, blur it, and find edges
-    # in the image
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    gray = cv2.GaussianBlur(gray, (3, 3), 0)
     edged = cv2.Canny(gray, 75, 200)
 
-    # show the original image and the edge detected image
-    print("STEP 0: Original Image")
-    cv2.imshow("Image", image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-    print("STEP 1: Edge Detection")
-    cv2.imshow("Edged", edged)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-    # find the contours in the edged image, keeping only the
-    # largest ones, and initialize the screen contour
     contours = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     contours = imutils.grab_contours(contours)
     contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
@@ -63,28 +65,16 @@ def run():
             screen_cnt = approx
             break
 
-    # show the contour (outline) of the piece of paper
-    print("STEP 2: Find contours of paper")
-    cv2.drawContours(image, [screen_cnt], -1, (0, 255, 0), 2)
-    cv2.imshow("Outline", image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    warped = np.random.rand(image.shape[0], image.shape[1])
 
-    # apply the four point transform to obtain a top-down
-    # view of the original image
-    warped = four_point_transform(orig, screen_cnt.reshape(4, 2) * ratio)
+    if screen_cnt is not None:
+        cv2.drawContours(image, [screen_cnt], -1, (0, 255, 0), 2)
+        warped = four_point_transform(orig, screen_cnt.reshape(4, 2) * ratio)
+        # warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+        # threshold = threshold_local(warped, 11, offset=10, method="gaussian")
+        # warped = np.array(warped > threshold).astype("uint8") * 255
 
-    # convert the warped image to grayscale, then threshold it
-    # to give it that 'black and white' paper effect
-    warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-    threshold = threshold_local(warped, 11, offset=10, method="gaussian")
-    warped = np.array(warped > threshold).astype("uint8") * 255
-
-    # show the original and scanned images
-    print("STEP 3: Apply perspective transform")
-    cv2.imshow("Original", imutils.resize(orig, height=image_height))
-    cv2.imshow("Scanned", imutils.resize(warped, height=image_height))
-    cv2.waitKey(0)
+    return edged, image, warped
 
 
 if __name__ == '__main__':
