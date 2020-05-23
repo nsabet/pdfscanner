@@ -49,11 +49,12 @@ def process_frame(image, image_height=1000):
 
     contours = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     contours = imutils.grab_contours(contours)
+    # sort the contour features by area from largest to smallest
     contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
 
     screen_cnt = None
 
-    # loop over the contours
+    # loop over the contours and try to find the largest 4-pointed polygon
     for c in contours:
         # approximate the contour
         peri = cv2.arcLength(c, True)
