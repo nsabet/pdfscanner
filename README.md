@@ -11,3 +11,10 @@ pdfscanner            *  /Users/nader/opt/anaconda3/envs/pdfscanner
 conda install -c conda-forge py-opencv=4.2.0
 conda install -c conda-forge imutils
 conda install -c anaconda scikit-image
+
+# exporting environment
+conda env export | grep -v "^prefix: " > environment.yml
+
+# creating environment
+conda env create -f environment.yml
+
